@@ -1,6 +1,6 @@
 # VirtualBox 3D PoCs & exploits
 
-*Author*: Niklas Baumstark ([@_niklasb](https://twitter.com/niklasb))
+*Author*: Niklas Baumstark ([@_niklasb](https://twitter.com/_niklasb))
 
 [Overview article](https://phoenhex.re/2018-07-27/better-slow-than-sorry).
 
