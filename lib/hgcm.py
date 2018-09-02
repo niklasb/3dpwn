@@ -1,0 +1,253 @@
+import ctypes
+import fcntl
+import os
+from array import array
+from struct import pack, unpack
+
+IOCTL_HGCM_CONNECT = 4
+IOCTL_HGCM_DISCONNECT = 5
+IOCTL_HGCM_CALL = 7
+
+def VBGL_IOCTL_CODE_SIZE(func, size):
+    return 0xc0005600 + (size<<16) + func
+
+def vbox_ioctl_header(insize, outsize):
+    '''
+    typedef struct VBGLREQHDR
+    {
+        /** IN: The request input size, and output size if cbOut is zero.
+         * @sa VMMDevRequestHeader::size  */
+        uint32_t        cbIn;
+        /** IN: Structure version (VBGLREQHDR_VERSION)
+         * @sa VMMDevRequestHeader::version */
+        uint32_t        uVersion;
+        /** IN: The VMMDev request type, set to VBGLREQHDR_TYPE_DEFAULT unless this is a
+         * kind of VMMDev request.
+         * @sa VMMDevRequestType, VMMDevRequestHeader::requestType */
+        uint32_t        uType;
+        /** OUT: The VBox status code of the operation, out direction only. */
+        int32_t         rc;
+        /** IN: The output size.  This is optional - set to zero to use cbIn as the
+         * output size. */
+        uint32_t        cbOut;
+        /** Reserved, MBZ. */
+        uint32_t        uReserved;
+    } VBGLREQHDR;
+    '''
+    return pack('<IIIiII',
+            24+insize,  # cbIn
+            0x10001,    # uVersion = VBGLREQHDR_VERSION
+            0,          # uType = VBGLREQHDR_TYPE_DEFAULT
+            -225,       # rc = VERR_INTERNAL_ERROR
+            24+outsize, # cbOut
+            0)          # uReserved
+
+fd = None
+def vbox_ioctl(func, data, outsize):
+    global fd
+    if fd is None:
+        fd = os.open('/dev/vboxuser', os.O_RDWR)
+    data = array('b', vbox_ioctl_header(len(data), outsize) + data.ljust(outsize, '\0'))
+    rc = fcntl.ioctl(fd, VBGL_IOCTL_CODE_SIZE(func, len(data)), data, 1)
+    if rc:
+        raise IOError, 'VBoxError (IOCTL): %d' % rc
+    _,_,_,rc,_,_ = unpack('<IIIiII', data[:24])
+    if rc:
+        raise IOError, 'VBoxError (HGCM): %d' % rc
+    return data[24:24+outsize]
+
+def hgcm_connect(svc):
+    '''
+    # define VBGL_IOCTL_HGCM_CONNECT                    VBGL_IOCTL_CODE_SIZE(4, VBGL_IOCTL_HGCM_CONNECT_SIZE)
+    # define VBGL_IOCTL_HGCM_CONNECT_SIZE               sizeof(VBGLIOCHGCMCONNECT)
+    # define VBGL_IOCTL_HGCM_CONNECT_SIZE_IN            sizeof(VBGLIOCHGCMCONNECT)
+    # define VBGL_IOCTL_HGCM_CONNECT_SIZE_OUT           RT_UOFFSET_AFTER(VBGLIOCHGCMCONNECT, u.Out)
+    typedef struct VBGLIOCHGCMCONNECT
+    {
+        /** The header. */
+        VBGLREQHDR                  Hdr;
+        union
+        {
+            struct
+            {
+                HGCMServiceLocation Loc;
+            } In;
+            struct
+            {
+                uint32_t            idClient;
+            } Out;
+        } u;
+    } VBGLIOCHGCMCONNECT, RT_FAR *PVBGLIOCHGCMCONNECT;
+    AssertCompileSize(VBGLIOCHGCMCONNECT, 24 + 132);
+
+    typedef enum
+    {
+        VMMDevHGCMLoc_Invalid    = 0,
+        VMMDevHGCMLoc_LocalHost  = 1,
+        VMMDevHGCMLoc_LocalHost_Existing = 2,
+        VMMDevHGCMLoc_SizeHack   = 0x7fffffff
+    } HGCMServiceLocationType;
+    AssertCompileSize(HGCMServiceLocationType, 4);
+
+    typedef struct
+    {
+        char achName[128]; /**< This is really szName. */
+    } HGCMServiceLocationHost;
+    AssertCompileSize(HGCMServiceLocationHost, 128);
+
+    typedef struct HGCMSERVICELOCATION
+    {
+        /** Type of the location. */
+        HGCMServiceLocationType type;
+
+        union
+        {
+            HGCMServiceLocationHost host;
+        } u;
+    } HGCMServiceLocation;
+    AssertCompileSize(HGCMServiceLocation, 128+4);
+
+    '''
+
+    data = pack('<I128s',
+            2,  # type = LocalHost_Existing
+            svc # achName
+            )
+
+    client_id, = unpack('<I', vbox_ioctl(IOCTL_HGCM_CONNECT, data, 4))
+    return client_id
+
+def hgcm_disconnect(client_id):
+    '''
+    # define VBGL_IOCTL_HGCM_DISCONNECT                 VBGL_IOCTL_CODE_SIZE(5, VBGL_IOCTL_HGCM_DISCONNECT_SIZE)
+    # define VBGL_IOCTL_HGCM_DISCONNECT_SIZE            sizeof(VBGLIOCHGCMDISCONNECT)
+    # define VBGL_IOCTL_HGCM_DISCONNECT_SIZE_IN         sizeof(VBGLIOCHGCMDISCONNECT)
+    # define VBGL_IOCTL_HGCM_DISCONNECT_SIZE_OUT        sizeof(VBGLREQHDR)
+    /** @note This is also used by a VbglR0 API.  */
+    typedef struct VBGLIOCHGCMDISCONNECT
+    {
+        /** The header. */
+        VBGLREQHDR          Hdr;
+        union
+        {
+            struct
+            {
+                uint32_t    idClient;
+            } In;
+        } u;
+    } VBGLIOCHGCMDISCONNECT, RT_FAR *PVBGLIOCHGCMDISCONNECT;
+    AssertCompileSize(VBGLIOCHGCMDISCONNECT, 24 + 4);
+    '''
+    data = pack('<I', client_id)
+    vbox_ioctl(IOCTL_HGCM_DISCONNECT, data, 0)
+
+def hgcm_call(client_id, func, params):
+    '''
+    typedef struct VBGLIOCHGCMCALL
+    {
+        /** Common header. */
+        VBGLREQHDR  Hdr;
+        /** Input: The id of the caller. */
+        uint32_t    u32ClientID;
+        /** Input: Function number. */
+        uint32_t    u32Function;
+        /** Input: How long to wait (milliseconds) for completion before cancelling the
+        * call.  This is ignored if not a VBGL_IOCTL_HGCM_CALL_TIMED or
+        * VBGL_IOCTL_HGCM_CALL_TIMED_32 request. */
+        uint32_t    cMsTimeout;
+        /** Input: Whether a timed call is interruptible (ring-0 only).  This is ignored
+        * if not a VBGL_IOCTL_HGCM_CALL_TIMED or VBGL_IOCTL_HGCM_CALL_TIMED_32
+        * request, or if made from user land. */
+        bool        fInterruptible;
+        /** Explicit padding, MBZ. */
+        uint8_t     bReserved;
+        /** Input: How many parameters following this structure.
+        *
+        * The parameters are either HGCMFunctionParameter64 or HGCMFunctionParameter32,
+        * depending on whether we're receiving a 64-bit or 32-bit request.
+        *
+        * The current maximum is 61 parameters (given a 1KB max request size,
+        * and a 64-bit parameter size of 16 bytes).
+        *
+        * @note This information is duplicated by Hdr.cbIn, but it's currently too much
+        *       work to eliminate this. */
+        uint16_t    cParms;
+        /* Parameters follow in form HGCMFunctionParameter aParms[cParms] */
+    } VBGLIOCHGCMCALL, RT_FAR *PVBGLIOCHGCMCALL;
+    AssertCompileSize(VBGLIOCHGCMCALL, 24 + 16);
+
+    typedef enum
+    {
+        VMMDevHGCMParmType_Invalid            = 0,
+        VMMDevHGCMParmType_32bit              = 1,
+        VMMDevHGCMParmType_64bit              = 2,
+        VMMDevHGCMParmType_PhysAddr           = 3,  /**< @deprecated Doesn't work, use PageList. */
+        VMMDevHGCMParmType_LinAddr            = 4,  /**< In and Out */
+        VMMDevHGCMParmType_LinAddr_In         = 5,  /**< In  (read;  host<-guest) */
+        VMMDevHGCMParmType_LinAddr_Out        = 6,  /**< Out (write; host->guest) */
+        VMMDevHGCMParmType_LinAddr_Locked     = 7,  /**< Locked In and Out */
+        VMMDevHGCMParmType_LinAddr_Locked_In  = 8,  /**< Locked In  (read;  host<-guest) */
+        VMMDevHGCMParmType_LinAddr_Locked_Out = 9,  /**< Locked Out (write; host->guest) */
+        VMMDevHGCMParmType_PageList           = 10, /**< Physical addresses of locked pages for a buffer. */
+        VMMDevHGCMParmType_SizeHack           = 0x7fffffff
+    } HGCMFunctionParameterType;
+
+    typedef struct
+    {
+        HGCMFunctionParameterType type;
+        union
+        {
+            uint32_t   value32;
+            uint64_t   value64;
+            struct
+            {
+                uint32_t size;
+
+                union
+                {
+                    RTGCPHYS64 physAddr;
+                    RTGCPTR64  linearAddr;
+                } u;
+            } Pointer;
+            struct
+            {
+                uint32_t size;   /**< Size of the buffer described by the page list. */
+                uint32_t offset; /**< Relative to the request header, valid if size != 0. */
+            } PageList;
+        } u;
+        //...
+    } HGCMFunctionParameter64;
+    '''
+
+    fmt = '<IIIBBH'
+    data = pack(fmt,
+            client_id,
+            func,
+            100000, # timeout, ignored
+            0, 0,
+            len(params))
+    assert len(data) == 16
+
+    args = []
+    for p in params:
+        if isinstance(p, (int, long)):
+            args.append(p)
+            data += pack('<IIQ', 1, p, 0)
+        else:
+            s = ctypes.create_string_buffer(p)
+            data += pack('<IIQ', 4, len(p), ctypes.addressof(s))
+            args.append((s, len(p)))
+
+    # print ' '.join('%02x'%ord(x) for x in data)
+    sz = len(data)
+    data = vbox_ioctl(IOCTL_HGCM_CALL, data, sz)
+
+    res = []
+    for i, a in enumerate(args):
+        if isinstance(a, (int, long)):
+            _,ret,_ = unpack('<IIQ', data[16+i*16:16+(i+1)*16])
+            res.append(ret)
+        else:
+            s, sz = a
+            res.append(s[:sz])
+    return res
