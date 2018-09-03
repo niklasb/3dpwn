@@ -1,0 +1,13 @@
+diff --git a/src/libs/xpcom18a4/python/src/ErrorUtils.cpp b/src/libs/xpcom18a4/python/src/ErrorUtils.cpp
+index f211c7a..fd6811c 100644
+--- a/src/libs/xpcom18a4/python/src/ErrorUtils.cpp
++++ b/src/libs/xpcom18a4/python/src/ErrorUtils.cpp
+@@ -440,7 +440,7 @@ char *PyTraceback_AsString(PyObject *exc_tb)
+ #if PY_MAJOR_VERSION <= 2
+ 	char *tempResult = PyString_AsString(obResult);
+ #else
+-	char *tempResult = PyUnicode_AsUTF8(obResult);
++	const char *tempResult = PyUnicode_AsUTF8(obResult);
+ #endif
+ 	result = (char *)PyMem_Malloc(strlen(tempResult)+1);
+ 	if (result==NULL)

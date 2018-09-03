@@ -1,0 +1,409 @@
+diff --git a/src/VBox/GuestHost/OpenGL/glapi_parser/apiutil.pyc b/src/VBox/GuestHost/OpenGL/glapi_parser/apiutil.pyc
+index d80b616c..8544d3a3 100644
+Binary files a/src/VBox/GuestHost/OpenGL/glapi_parser/apiutil.pyc and b/src/VBox/GuestHost/OpenGL/glapi_parser/apiutil.pyc differ
+diff --git a/src/VBox/GuestHost/OpenGL/include/cr_unpack.h b/src/VBox/GuestHost/OpenGL/include/cr_unpack.h
+index b07ac978..732d7c2a 100644
+--- a/src/VBox/GuestHost/OpenGL/include/cr_unpack.h
++++ b/src/VBox/GuestHost/OpenGL/include/cr_unpack.h
+@@ -69,7 +69,7 @@ DECLEXPORT(double) crReadUnalignedDouble( const void *buffer );
+     ( (type *) (cr_unpackData + (offset)) )
+ 
+ #define DATA_POINTER_CHECK( offset ) \
+-    ( (offset) >= 0 && (cr_unpackDataEnd >= cr_unpackData) && (size_t)(cr_unpackDataEnd - cr_unpackData) > (size_t)(offset) )
++    ( (cr_unpackDataEnd ? cr_unpackData + (offset) < cr_unpackDataEnd : true) )
+ 
+ #define INCR_DATA_PTR( delta ) \
+     cr_unpackData += (delta)
+diff --git a/src/VBox/GuestHost/OpenGL/packer/pack_currenttypes.pyc b/src/VBox/GuestHost/OpenGL/packer/pack_currenttypes.pyc
+index f4a9b567..774eebba 100644
+Binary files a/src/VBox/GuestHost/OpenGL/packer/pack_currenttypes.pyc and b/src/VBox/GuestHost/OpenGL/packer/pack_currenttypes.pyc differ
+diff --git a/src/VBox/GuestHost/OpenGL/state_tracker/convert.pyc b/src/VBox/GuestHost/OpenGL/state_tracker/convert.pyc
+index 88cff06f..00fbcbda 100644
+Binary files a/src/VBox/GuestHost/OpenGL/state_tracker/convert.pyc and b/src/VBox/GuestHost/OpenGL/state_tracker/convert.pyc differ
+diff --git a/src/VBox/GuestHost/OpenGL/state_tracker/get_components.pyc b/src/VBox/GuestHost/OpenGL/state_tracker/get_components.pyc
+index 71baf905..782612e5 100644
+Binary files a/src/VBox/GuestHost/OpenGL/state_tracker/get_components.pyc and b/src/VBox/GuestHost/OpenGL/state_tracker/get_components.pyc differ
+diff --git a/src/VBox/GuestHost/OpenGL/state_tracker/state_teximage.c b/src/VBox/GuestHost/OpenGL/state_tracker/state_teximage.c
+index e64d7905..3ea1820a 100644
+--- a/src/VBox/GuestHost/OpenGL/state_tracker/state_teximage.c
++++ b/src/VBox/GuestHost/OpenGL/state_tracker/state_teximage.c
+@@ -739,8 +739,7 @@ crStateTexImage2D(GLenum target, GLint level, GLint internalFormat,
+     CRTextureLevel *tl = NULL;
+     CRStateBits *sb = GetCurrentBits();
+     CRTextureBits *tb = &(sb->texture);
+-    // Distributed textures are not used by VBox
+-    const int is_distrib = 0; // ((type == GL_TRUE) || (type == GL_FALSE));
++    const int is_distrib = ((type == GL_TRUE) || (type == GL_FALSE));
+ 
+     FLUSH();
+ 
+diff --git a/src/VBox/GuestHost/OpenGL/util/vboxhgcm.c b/src/VBox/GuestHost/OpenGL/util/vboxhgcm.c
+index c24ce201..0a0786f9 100644
+--- a/src/VBox/GuestHost/OpenGL/util/vboxhgcm.c
++++ b/src/VBox/GuestHost/OpenGL/util/vboxhgcm.c
+@@ -1077,25 +1077,6 @@ static void _crVBoxHGCMReceiveMessage(CRConnection *conn)
+     CRASSERT(len > 0);
+     CRASSERT(conn->pBuffer);
+ 
+-#ifndef IN_GUEST
+-    /* Expect only CR_MESSAGE_OPCODES from the guest. */
+-    AssertPtrReturnVoid(conn->pBuffer);
+-
+-    if (   conn->cbBuffer >= sizeof(CRMessageHeader)
+-        && ((CRMessageHeader*) (conn->pBuffer))->type == CR_MESSAGE_OPCODES)
+-    {
+-        /* Looks good. */
+-    }
+-    else
+-    {
+-        AssertFailed();
+-        /** @todo Find out if this is the expected cleanup. */
+-        conn->cbBuffer = 0;
+-        conn->pBuffer  = NULL;
+-        return;
+-    }
+-#endif
+-
+ #ifndef IN_GUEST
+     if (conn->allow_redir_ptr)
+     {
+diff --git a/src/VBox/HostServices/SharedOpenGL/crserverlib/get_sizes.pyc b/src/VBox/HostServices/SharedOpenGL/crserverlib/get_sizes.pyc
+index 9c47c948..e1785894 100644
+Binary files a/src/VBox/HostServices/SharedOpenGL/crserverlib/get_sizes.pyc and b/src/VBox/HostServices/SharedOpenGL/crserverlib/get_sizes.pyc differ
+diff --git a/src/VBox/HostServices/SharedOpenGL/crserverlib/presenter/display_base.cpp b/src/VBox/HostServices/SharedOpenGL/crserverlib/presenter/display_base.cpp
+index 4bbf31b4..d8b98e1f 100644
+--- a/src/VBox/HostServices/SharedOpenGL/crserverlib/presenter/display_base.cpp
++++ b/src/VBox/HostServices/SharedOpenGL/crserverlib/presenter/display_base.cpp
+@@ -326,9 +326,9 @@ int CrFbDisplayBase::fbCleanupRemoveAllEntries()
+             WARN(("err"));
+             break;
+         }
+-    }
+ 
+-    CrFbVisitCreatedEntries(mpFb, entriesDestroyCb, this);
++        CrFbVisitCreatedEntries(mpFb, entriesDestroyCb, this);
++    }
+ 
+     return rc;
+ }
+diff --git a/src/VBox/HostServices/SharedOpenGL/crserverlib/server_getshaders.c b/src/VBox/HostServices/SharedOpenGL/crserverlib/server_getshaders.c
+index bbd58788..2b84271c 100644
+--- a/src/VBox/HostServices/SharedOpenGL/crserverlib/server_getshaders.c
++++ b/src/VBox/HostServices/SharedOpenGL/crserverlib/server_getshaders.c
+@@ -36,11 +36,9 @@ typedef struct _crGetActive_t
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetActiveAttrib(GLuint program, GLuint index, GLsizei bufSize, GLsizei *length, GLint *size, GLenum *type, char *name)
+ {
+-    crGetActive_t *pLocal = NULL;
+-
+-    if (bufSize < INT32_MAX / 2)
+-        pLocal = (crGetActive_t*)crAlloc(bufSize + sizeof(crGetActive_t));
++    crGetActive_t *pLocal;
+ 
++    pLocal = (crGetActive_t*) crAlloc(bufSize+sizeof(crGetActive_t));
+     if (!pLocal)
+     {
+         crGetActive_t zero;
+@@ -57,11 +55,9 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetActiveAttrib(GLuint program, GL
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetActiveUniform(GLuint program, GLuint index, GLsizei bufSize, GLsizei *length, GLint *size, GLenum *type, char *name)
+ {
+-    crGetActive_t *pLocal = NULL;
+-
+-    if (bufSize < INT32_MAX / 2)
+-        pLocal = (crGetActive_t*) crAlloc(bufSize + sizeof(crGetActive_t));
++    crGetActive_t *pLocal;
+ 
++    pLocal = (crGetActive_t*) crAlloc(bufSize+sizeof(crGetActive_t));
+     if (!pLocal)
+     {
+         crGetActive_t zero;
+@@ -78,11 +74,9 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetActiveUniform(GLuint program, G
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei *count, GLuint *shaders)
+ {
+-    GLsizei *pLocal = NULL;
+-
+-    if (maxCount < INT32_MAX / sizeof(GLuint) / 2)
+-        pLocal = (GLsizei*) crAlloc(maxCount * sizeof(GLuint) + sizeof(GLsizei));
++    GLsizei *pLocal;
+ 
++    pLocal = (GLsizei*) crAlloc(maxCount*sizeof(GLuint)+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -107,11 +101,9 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetAttachedShaders(GLuint program,
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetAttachedObjectsARB(VBoxGLhandleARB containerObj, GLsizei maxCount, GLsizei * count, VBoxGLhandleARB * obj)
+ {
+-    GLsizei *pLocal = NULL;
+-
+-    if (maxCount < INT32_MAX / sizeof(VBoxGLhandleARB) / 2)
+-        pLocal = (GLsizei*) crAlloc(maxCount * sizeof(VBoxGLhandleARB) + sizeof(GLsizei));
++    GLsizei *pLocal;
+ 
++    pLocal = (GLsizei*) crAlloc(maxCount*sizeof(VBoxGLhandleARB)+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -138,12 +130,10 @@ AssertCompile(sizeof(GLsizei) == 4);
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetInfoLogARB(VBoxGLhandleARB obj, GLsizei maxLength, GLsizei * length, GLcharARB * infoLog)
+ {
+-    GLsizei *pLocal = NULL;
++    GLsizei *pLocal;
+     GLuint hwid;
+ 
+-    if (maxLength < INT32_MAX / 2)
+-        pLocal = (GLsizei*) crAlloc(maxLength + sizeof(GLsizei));
+-
++    pLocal = (GLsizei*) crAlloc(maxLength+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -163,11 +153,9 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetInfoLogARB(VBoxGLhandleARB obj,
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei *length, char *infoLog)
+ {
+-    GLsizei *pLocal = NULL;
+-
+-    if (bufSize < INT32_MAX / 2)
+-        pLocal = (GLsizei*) crAlloc(bufSize + sizeof(GLsizei));
++    GLsizei *pLocal;
+ 
++    pLocal = (GLsizei*) crAlloc(bufSize+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -183,11 +171,9 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetShaderInfoLog(GLuint shader, GL
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei *length, char *infoLog)
+ {
+-    GLsizei *pLocal = NULL;
+-
+-    if (bufSize < INT32_MAX / 2)
+-        pLocal = (GLsizei*) crAlloc(bufSize + sizeof(GLsizei));
++    GLsizei *pLocal;
+ 
++    pLocal = (GLsizei*) crAlloc(bufSize+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -204,11 +190,9 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetProgramInfoLog(GLuint program,
+ 
+ void SERVER_DISPATCH_APIENTRY crServerDispatchGetShaderSource(GLuint shader, GLsizei bufSize, GLsizei *length, char *source)
+ {
+-    GLsizei *pLocal = NULL;
+-
+-    if (bufSize < INT32_MAX / 2)
+-        pLocal = (GLsizei*) crAlloc(bufSize + sizeof(GLsizei));
++    GLsizei *pLocal;
+ 
++    pLocal = (GLsizei*) crAlloc(bufSize+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -226,14 +210,12 @@ void SERVER_DISPATCH_APIENTRY crServerDispatchGetShaderSource(GLuint shader, GLs
+ void SERVER_DISPATCH_APIENTRY
+ crServerDispatchGetUniformsLocations(GLuint program, GLsizei maxcbData, GLsizei * cbData, GLvoid * pData)
+ {
+-    GLsizei *pLocal = NULL;
++    GLsizei *pLocal;
+ 
+     (void) cbData;
+     (void) pData;
+ 
+-    if (maxcbData < INT32_MAX / 2)
+-        pLocal = (GLsizei*) crAlloc(maxcbData + sizeof(GLsizei));
+-
++    pLocal = (GLsizei*) crAlloc(maxcbData+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+@@ -252,14 +234,12 @@ crServerDispatchGetUniformsLocations(GLuint program, GLsizei maxcbData, GLsizei
+ void SERVER_DISPATCH_APIENTRY
+ crServerDispatchGetAttribsLocations(GLuint program, GLsizei maxcbData, GLsizei * cbData, GLvoid * pData)
+ {
+-    GLsizei *pLocal = NULL;
++    GLsizei *pLocal;
+ 
+     (void) cbData;
+     (void) pData;
+ 
+-    if (maxcbData < INT32_MAX / 2)
+-        pLocal = (GLsizei*) crAlloc(maxcbData + sizeof(GLsizei));
+-
++    pLocal = (GLsizei*) crAlloc(maxcbData+sizeof(GLsizei));
+     if (!pLocal)
+     {
+         GLsizei zero=0;
+diff --git a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_drawpixels.c b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_drawpixels.c
+index e034a28b..dc5636fd 100644
+--- a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_drawpixels.c
++++ b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_drawpixels.c
+@@ -7,8 +7,6 @@
+ #include "unpacker.h"
+ #include "cr_error.h"
+ 
+-#include "state/cr_bufferobject.h"
+-
+ void crUnpackDrawPixels( void )
+ {
+     GLsizei width  = READ_DATA( sizeof( int ) + 0, GLsizei );
+@@ -18,9 +16,6 @@ void crUnpackDrawPixels( void )
+     GLint noimagedata = READ_DATA( sizeof( int ) + 16, GLint );
+     GLvoid *pixels;
+ 
+-    if (noimagedata && !crStateIsBufferBound(GL_PIXEL_UNPACK_BUFFER_ARB))
+-        return;
+-
+     if (noimagedata)
+         pixels = (void*) (uintptr_t) READ_DATA( sizeof( int ) + 20, GLint);
+     else
+@@ -47,9 +42,6 @@ void crUnpackBitmap( void )
+     GLuint noimagedata = READ_DATA( sizeof( int ) + 24, GLuint );
+     GLubyte *bitmap;
+ 
+-    if (noimagedata && !crStateIsBufferBound(GL_PIXEL_UNPACK_BUFFER_ARB))
+-        return;
+-
+     if (noimagedata)
+         bitmap = (void*) (uintptr_t) READ_DATA(sizeof(int) + 28, GLint);
+     else
+diff --git a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_pixelmap.c b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_pixelmap.c
+index 9d0eb1a6..0a6ef309 100644
+--- a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_pixelmap.c
++++ b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_pixelmap.c
+@@ -5,7 +5,6 @@
+  */
+ 
+ #include "unpacker.h"
+-#include "state/cr_bufferobject.h"
+ 
+ void crUnpackPixelMapfv( void  )
+ {
+@@ -14,9 +13,6 @@ void crUnpackPixelMapfv( void  )
+     int nodata = READ_DATA( sizeof(int) + 8, int);
+     GLfloat *values;
+ 
+-    if (nodata && !crStateIsBufferBound(GL_PIXEL_UNPACK_BUFFER_ARB))
+-        return;
+-
+     if (nodata)
+         values = (GLfloat*) (uintptr_t) READ_DATA(sizeof(int) + 12, GLint);
+     else
+@@ -33,9 +29,6 @@ void crUnpackPixelMapuiv( void  )
+     int nodata = READ_DATA( sizeof(int) + 8, int);
+     GLuint *values;
+ 
+-    if (nodata && !crStateIsBufferBound(GL_PIXEL_UNPACK_BUFFER_ARB))
+-        return;
+-
+     if (nodata)
+         values = (GLuint*) (uintptr_t) READ_DATA(sizeof(int) + 12, GLint);
+     else
+@@ -52,9 +45,6 @@ void crUnpackPixelMapusv( void  )
+     int nodata = READ_DATA( sizeof(int) + 8, int);
+     GLushort *values;
+ 
+-    if (nodata && !crStateIsBufferBound(GL_PIXEL_UNPACK_BUFFER_ARB))
+-        return;
+-
+     if (nodata)
+         values = (GLushort*) (uintptr_t) READ_DATA(sizeof(int) + 12, GLint);
+     else
+diff --git a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_program.c b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_program.c
+index a33e5b30..af4877f2 100644
+--- a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_program.c
++++ b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_program.c
+@@ -91,18 +91,11 @@ void crUnpackExtendProgramParameters4fvNV(void)
+ 
+ void crUnpackExtendAreProgramsResidentNV(void)
+ {
+-    GLsizei n = READ_DATA(8, GLsizei);
+-    const GLuint *programs = DATA_POINTER(12, const GLuint);
+-
+-    if (n > UINT32_MAX / sizeof(GLuint) / 4 || !DATA_POINTER_CHECK(20 + n * sizeof(GLuint)))
+-    {
+-        crError("crUnpackExtendAreProgramsResidentNV: %d is out of range", n);
+-        return;
+-    }
+-
+-    SET_RETURN_PTR(12 + n * sizeof(GLuint));
+-    SET_WRITEBACK_PTR(20 + n * sizeof(GLuint));
+-    (void) cr_unpackDispatch.AreProgramsResidentNV(n, programs, NULL);
++	GLsizei n = READ_DATA(8, GLsizei);
++	const GLuint *programs = DATA_POINTER(12, const GLuint);
++	SET_RETURN_PTR(12 + n * sizeof(GLuint));
++	SET_WRITEBACK_PTR(20 + n * sizeof(GLuint));
++	(void) cr_unpackDispatch.AreProgramsResidentNV(n, programs, NULL);
+ }
+ 
+ 
+@@ -221,36 +214,22 @@ void crUnpackExtendProgramNamedParameter4fvNV(void)
+ 
+ void crUnpackExtendGetProgramNamedParameterdvNV(void)
+ {
+-    GLuint id = READ_DATA(8, GLuint);
+-    GLsizei len = READ_DATA(12, GLsizei);
+-    const GLubyte *name = DATA_POINTER(16, GLubyte);
+-
+-    if (len > UINT32_MAX / 4 || !DATA_POINTER_CHECK(16 + len + 8))
+-    {
+-        crError("crUnpackExtendGetProgramNamedParameterdvNV: len %d is out of range", len);
+-        return;
+-    }
+-
+-    SET_RETURN_PTR(16+len);
+-    SET_WRITEBACK_PTR(16+len+8);
+-    cr_unpackDispatch.GetProgramNamedParameterdvNV(id, len, name, NULL);
++	GLuint id = READ_DATA(8, GLuint);
++	GLsizei len = READ_DATA(12, GLsizei);
++	const GLubyte *name = DATA_POINTER(16, GLubyte);
++	SET_RETURN_PTR(16+len);
++	SET_WRITEBACK_PTR(16+len+8);
++	cr_unpackDispatch.GetProgramNamedParameterdvNV(id, len, name, NULL);
+ }
+ 
+ void crUnpackExtendGetProgramNamedParameterfvNV(void)
+ {
+-    GLuint id = READ_DATA(8, GLuint);
+-    GLsizei len = READ_DATA(12, GLsizei);
+-    const GLubyte *name = DATA_POINTER(16, GLubyte);
+-
+-    if (len > UINT32_MAX / 4 || !DATA_POINTER_CHECK(16 + len + 8))
+-    {
+-        crError("crUnpackExtendGetProgramNamedParameterfvNV: len %d is out of range", len);
+-        return;
+-    }
+-
+-    SET_RETURN_PTR(16+len);
+-    SET_WRITEBACK_PTR(16+len+8);
+-    cr_unpackDispatch.GetProgramNamedParameterfvNV(id, len, name, NULL);
++	GLuint id = READ_DATA(8, GLuint);
++	GLsizei len = READ_DATA(12, GLsizei);
++	const GLubyte *name = DATA_POINTER(16, GLubyte);
++	SET_RETURN_PTR(16+len);
++	SET_WRITEBACK_PTR(16+len+8);
++	cr_unpackDispatch.GetProgramNamedParameterfvNV(id, len, name, NULL);
+ }
+ 
+ void crUnpackExtendProgramStringARB(void)
+diff --git a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_texture.c b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_texture.c
+index f8ca1585..d94d1dff 100644
+--- a/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_texture.c
++++ b/src/VBox/HostServices/SharedOpenGL/unpacker/unpack_texture.c
+@@ -326,13 +326,6 @@ void crUnpackExtendAreTexturesResident( void )
+ {
+     GLsizei n = READ_DATA( 8, GLsizei );
+     const GLuint *textures = DATA_POINTER( 12, const GLuint );
+-
+-    if (n > UINT32_MAX / sizeof(GLuint) / 4 || !DATA_POINTER_CHECK(20 + n * sizeof(GLuint)))
+-    {
+-        crError("crUnpackExtendAreTexturesResident: %d is out of range", n);
+-        return;
+-    }
+-
+     SET_RETURN_PTR(12 + n * sizeof(GLuint));
+     SET_WRITEBACK_PTR(20 + n * sizeof(GLuint));
+     (void) cr_unpackDispatch.AreTexturesResident( n, textures, NULL );
