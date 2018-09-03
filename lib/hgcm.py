@@ -59,10 +59,10 @@ def vbox_ioctl(func, data, outsize):
     data = array('b', vbox_ioctl_header(len(data), outsize) + data.ljust(outsize, '\0'))
     rc = fcntl.ioctl(fd, VBGL_IOCTL_CODE_SIZE(func, len(data)), data, 1)
     if rc:
-        raise IOError, 'VBoxError (IOCTL): %d' % rc
+        raise IOError('VBoxError (IOCTL): %d' % rc)
     _,_,_,rc,_,_ = unpack('<IIIiII', data[:24])
     if rc:
-        raise IOError, 'VBoxError (HGCM): %d' % rc
+        raise IOError('VBoxError (HGCM): %d' % rc)
     return data[24:24+outsize]
 
 def hgcm_connect(svc):
@@ -266,7 +266,7 @@ def hgcm_call(client_id, func, params):
             data += pack('<IIQ', VMMDevHGCMParmType_LinAddr, len(p), ctypes.addressof(s))
             args.append((s, len(p)))
 
-    # print ' '.join('%02x'%ord(x) for x in data)
+    # print(' '.join('%02x'%ord(x) for x in data))
     sz = len(data)
     data = vbox_ioctl(IOCTL_HGCM_CALL, data, sz)
 
@@ -287,7 +287,7 @@ if __name__ == '__main__':
     DEL_PROP = 3
 
     client = hgcm_connect('VBoxGuestPropSvc')
-    print 'Client: %d' % client
+    print('Client: %d' % client)
     hgcm_call(client, SET_PROP, ["foo\0", "bar\0"])
     _, res, _, sz = hgcm_call(client, GET_PROP, ["foo\0", "A"*0x100, 0, 0])
     value = res[:sz].rstrip('\0')
