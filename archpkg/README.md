@@ -2,7 +2,7 @@
 
 This is a simple Arch Linux PKGBUILD to build a vulnerable version of
 VirtualBox. It is actually 5.2.18 with the 3D acceleration security patches
-from July 2017 reverted (see `015-revertogl.patch`).
+from July 2018 reverted (see `015-revertogl.patch`).
 
 ## Usage
 

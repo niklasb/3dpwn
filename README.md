@@ -8,6 +8,11 @@
 
 See the subdirectories other than `lib`.
 
+## Debug build
+
+For Arch Linux, you can use the provided PKGBUILD in `archpkg` to get a debug version of
+5.2.18, with the 3D security fixes from July 2018 reverted.
+
 ## Library
 
 `lib/hgcm.py` and `lib/chromium.py` provide high-level access to the HGCM interface and
