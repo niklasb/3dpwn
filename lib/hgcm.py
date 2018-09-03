@@ -1,3 +1,7 @@
+'''
+Simple HGCM implementation using VBGL_IOCTL_HGCM_{CONNECT,DISCONNECT,CALL}
+VBoxGuest IOCTLs.
+'''
 import ctypes
 import fcntl
 import os
@@ -7,6 +11,11 @@ from struct import pack, unpack
 IOCTL_HGCM_CONNECT = 4
 IOCTL_HGCM_DISCONNECT = 5
 IOCTL_HGCM_CALL = 7
+
+VMMDevHGCMParmType_32bit              = 1
+VMMDevHGCMParmType_64bit              = 2
+VMMDevHGCMParmType_LinAddr            = 4
+VMMDevHGCMParmType_PageList           = 10
 
 def VBGL_IOCTL_CODE_SIZE(func, size):
     return 0xc0005600 + (size<<16) + func
@@ -58,6 +67,10 @@ def vbox_ioctl(func, data, outsize):
 
 def hgcm_connect(svc):
     '''
+    Connect to the HGCM service by the given name. Returns client ID.
+    '''
+
+    '''
     # define VBGL_IOCTL_HGCM_CONNECT                    VBGL_IOCTL_CODE_SIZE(4, VBGL_IOCTL_HGCM_CONNECT_SIZE)
     # define VBGL_IOCTL_HGCM_CONNECT_SIZE               sizeof(VBGLIOCHGCMCONNECT)
     # define VBGL_IOCTL_HGCM_CONNECT_SIZE_IN            sizeof(VBGLIOCHGCMCONNECT)
@@ -106,7 +119,6 @@ def hgcm_connect(svc):
         } u;
     } HGCMServiceLocation;
     AssertCompileSize(HGCMServiceLocation, 128+4);
-
     '''
 
     data = pack('<I128s',
@@ -118,6 +130,10 @@ def hgcm_connect(svc):
     return client_id
 
 def hgcm_disconnect(client_id):
+    '''
+    Disconnect the given HGCM client.
+    '''
+
     '''
     # define VBGL_IOCTL_HGCM_DISCONNECT                 VBGL_IOCTL_CODE_SIZE(5, VBGL_IOCTL_HGCM_DISCONNECT_SIZE)
     # define VBGL_IOCTL_HGCM_DISCONNECT_SIZE            sizeof(VBGLIOCHGCMDISCONNECT)
@@ -141,7 +157,19 @@ def hgcm_disconnect(client_id):
     data = pack('<I', client_id)
     vbox_ioctl(IOCTL_HGCM_DISCONNECT, data, 0)
 
+
 def hgcm_call(client_id, func, params):
+    '''
+    Call an HGCM function.
+
+    Supported parameter types:
+    * int; VMMDevHGCMParmType_32bit
+    * string/bytes: VMMDevHGCMParmType_LinAddr
+
+    It will return all parameters after the call, in case they were modified
+    by the function.
+    '''
+
     '''
     typedef struct VBGLIOCHGCMCALL
     {
@@ -232,10 +260,10 @@ def hgcm_call(client_id, func, params):
     for p in params:
         if isinstance(p, (int, long)):
             args.append(p)
-            data += pack('<IIQ', 1, p, 0)
+            data += pack('<IIQ', VMMDevHGCMParmType_32bit, p, 0)
         else:
             s = ctypes.create_string_buffer(p)
-            data += pack('<IIQ', 4, len(p), ctypes.addressof(s))
+            data += pack('<IIQ', VMMDevHGCMParmType_LinAddr, len(p), ctypes.addressof(s))
             args.append((s, len(p)))
 
     # print ' '.join('%02x'%ord(x) for x in data)
@@ -251,3 +279,16 @@ def hgcm_call(client_id, func, params):
             s, sz = a
             res.append(s[:sz])
     return res
+
+
+if __name__ == '__main__':
+    GET_PROP = 1
+    SET_PROP = 2
+    DEL_PROP = 3
+
+    client = hgcm_connect('VBoxGuestPropSvc')
+    print 'Client: %d' % client
+    hgcm_call(client, SET_PROP, ["foo\0", "bar\0"])
+    _, res, _, sz = hgcm_call(client, GET_PROP, ["foo\0", "A"*0x100, 0, 0])
+    value = res[:sz].rstrip('\0')
+    assert value == 'bar'
