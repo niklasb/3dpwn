@@ -2,6 +2,7 @@
 Simple HGCM implementation using VBGL_IOCTL_HGCM_{CONNECT,DISCONNECT,CALL}
 VBoxGuest IOCTLs.
 '''
+from __future__ import print_function
 import ctypes
 import fcntl
 import os
