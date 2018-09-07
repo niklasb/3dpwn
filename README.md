@@ -4,6 +4,8 @@
 
 [Overview article](https://phoenhex.re/2018-07-27/better-slow-than-sorry).
 
+[License](https://github.com/niklasb/3dpwn/blob/master/LICENSE)
+
 ## Exploits
 
 See the subdirectories other than `lib`.
