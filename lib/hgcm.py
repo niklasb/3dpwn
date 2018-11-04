@@ -4,8 +4,14 @@ VBoxGuest IOCTLs.
 '''
 from __future__ import print_function
 import ctypes
-import fcntl
 import os
+import functools
+
+try:
+    import fcntl
+except:
+    pass
+
 from array import array
 from struct import pack, unpack
 
@@ -18,8 +24,18 @@ VMMDevHGCMParmType_64bit              = 2
 VMMDevHGCMParmType_LinAddr            = 4
 VMMDevHGCMParmType_PageList           = 10
 
-def VBGL_IOCTL_CODE_SIZE(func, size):
+def VBGL_IOCTL_CODE_SIZE_linux(func, size):
     return 0xc0005600 + (size<<16) + func
+
+def CTL_CODE(DeviceType, Function, Method, Access):
+    return (DeviceType << 16) | (Access << 14) | (Function << 2)
+
+def VBGL_IOCTL_CODE_SIZE_win(func, size):
+    return CTL_CODE(
+        0x22,          # FILE_DEVICE_UNKNOWN
+        2048 + func,
+        0,             # METHOD_BUFFERED
+        2)             # FILE_WRITE_ACCESS
 
 def vbox_ioctl_header(insize, outsize):
     '''
@@ -52,19 +68,56 @@ def vbox_ioctl_header(insize, outsize):
             24+outsize, # cbOut
             0)          # uReserved
 
-fd = None
-def vbox_ioctl(func, data, outsize):
-    global fd
-    if fd is None:
-        fd = os.open('/dev/vboxuser', os.O_RDWR)
-    data = array('b', vbox_ioctl_header(len(data), outsize) + data.ljust(outsize, '\0'))
-    rc = fcntl.ioctl(fd, VBGL_IOCTL_CODE_SIZE(func, len(data)), data, 1)
-    if rc:
+def vbox_ioctl_windows(handle, func, inbuf, outsize):
+    tx = ctypes.c_ulong()
+
+    insize = len(inbuf)
+    buf_in = ctypes.create_string_buffer(vbox_ioctl_header(insize, outsize) + inbuf)
+    buf_out = ctypes.create_string_buffer(24+outsize)
+
+    res = ctypes.windll.kernel32.DeviceIoControl(
+        handle, VBGL_IOCTL_CODE_SIZE_win(func, 24+insize),
+        buf_in, 24+insize,
+        buf_out, 24+outsize,
+        ctypes.byref(tx), None)
+    if not res:
+        raise WinError()
+    return buf_out.raw
+
+def vbox_ioctl_linux(fd, func, inbuf, outsize):
+    insize = len(inbuf)
+    buf = array('b', vbox_ioctl_header(insize, outsize) + inbuf.ljust(outsize, '\0'))
+    res = fcntl.ioctl(fd, VBGL_IOCTL_CODE_SIZE(func, len(buf)), buf, 1)
+    if res:
         raise IOError('VBoxError (IOCTL): %d' % rc)
-    _,_,_,rc,_,_ = unpack('<IIIiII', data[:24])
+    return buf
+
+
+do_vbox_ioctl = None
+def get_vbox_ioctl_func():
+    global do_vbox_ioctl
+    if do_vbox_ioctl is not None:
+        return do_vbox_ioctl
+
+    if os.path.exists('/dev/vboxuser'):
+        fd = os.open('/dev/vboxuser')
+        do_vbox_ioctl = functools.partial(vbox_ioctl_linux, fd)
+    else:
+        handle = ctypes.windll.kernel32.CreateFileA(
+            r'\\.\VBoxGuest',
+            0x80000000 | 0x40000000,  # GENERIC_READ | GENERIC_WRITE
+            None, None,
+            3, # OPEN_EXISTING
+            None, None)
+        do_vbox_ioctl = functools.partial(vbox_ioctl_windows, handle)
+    return do_vbox_ioctl
+
+def vbox_ioctl(func, req, outsize):
+    resp = get_vbox_ioctl_func()(func, req, outsize=outsize)
+    _,_,_,rc,_,_ = unpack('<IIIiII', resp[:24])
     if rc:
         raise IOError('VBoxError (HGCM): %d' % rc)
-    return data[24:24+outsize]
+    return resp[24:24+outsize]
 
 def hgcm_connect(svc):
     '''
