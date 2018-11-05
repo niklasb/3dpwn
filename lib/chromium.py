@@ -76,3 +76,8 @@ def create_context(client):
         + pack("<III", win, 0x400002, ctx)
         )
     crmsg(client, msg)
+
+if __name__ == '__main__':
+    client = hgcm_connect("VBoxSharedCrOpenGL")
+    #set_version(client)
+    pass
