@@ -87,7 +87,7 @@ def vbox_ioctl_windows(handle, func, inbuf, outsize):
 def vbox_ioctl_linux(fd, func, inbuf, outsize):
     insize = len(inbuf)
     buf = array('b', vbox_ioctl_header(insize, outsize) + inbuf.ljust(outsize, '\0'))
-    res = fcntl.ioctl(fd, VBGL_IOCTL_CODE_SIZE(func, len(buf)), buf, 1)
+    res = fcntl.ioctl(fd, VBGL_IOCTL_CODE_SIZE_linux(func, len(buf)), buf, 1)
     if res:
         raise IOError('VBoxError (IOCTL): %d' % rc)
     return buf
@@ -100,7 +100,7 @@ def get_vbox_ioctl_func():
         return do_vbox_ioctl
 
     if os.path.exists('/dev/vboxuser'):
-        fd = os.open('/dev/vboxuser')
+        fd = os.open('/dev/vboxuser', os.O_RDWR)
         do_vbox_ioctl = functools.partial(vbox_ioctl_linux, fd)
     else:
         handle = ctypes.windll.kernel32.CreateFileA(
