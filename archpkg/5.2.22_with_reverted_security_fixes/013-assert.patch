@@ -1,0 +1,13 @@
+diff --git a/include/iprt/assert.h b/include/iprt/assert.h
+index f336fd07..828fb87e 100644
+--- a/include/iprt/assert.h
++++ b/include/iprt/assert.h
+@@ -31,6 +31,8 @@
+ #include <iprt/stdarg.h>
+ #include <iprt/assertcompile.h>
+ 
++#define RTASSERT_DONT_PANIC 1
++
+ /** @defgroup grp_rt_assert     Assert - Assertions
+  * @ingroup grp_rt
+  *
