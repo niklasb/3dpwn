@@ -148,13 +148,13 @@ build() {
     # fake makeself binary to compile without nofatal
     # makeself is used by linux installer. we don't need it.
     source ./env.sh
-    kmk
+    kmk BUILD_TYPE=debug
 
     msg2 'Build rdesktop-vrdp'
-    kmk -C src/VBox/RDP/client-1.8.3
+    kmk BUILD_TYPE=debug -C src/VBox/RDP/client-1.8.3
 
     msg2 'Build VNC extension pack'
-    kmk -C src/VBox/ExtPacks/VNC packing
+    kmk BUILD_TYPE=debug -C src/VBox/ExtPacks/VNC packing
 }
 
 package_virtualbox() {
