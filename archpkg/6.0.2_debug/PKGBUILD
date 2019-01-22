@@ -168,7 +168,7 @@ package_virtualbox() {
     # binaries
     install -dm0755 "$pkgdir/usr/bin"
     install -m0755 VBox.sh "$pkgdir/usr/bin/VBox"
-    for i in VBoxHeadless VBoxManage VBoxSDL VirtualBox vboxwebsrv VBoxBalloonCtrl; do
+    for i in VBoxHeadless VBoxManage VBoxSDL VirtualBox VBoxBalloonCtrl; do
         ln -sf VBox "$pkgdir/usr/bin/$i"
         ln -sf VBox "$pkgdir/usr/bin/${i,,}"
     done
@@ -182,7 +182,7 @@ package_virtualbox() {
     ## setuid root binaries
     install -m4755 VBoxSDL VirtualBoxVM VBoxHeadless VBoxNetDHCP VBoxNetAdpCtl VBoxNetNAT -t "$pkgdir/usr/lib/virtualbox"
     ## other binaries
-    install -m0755 VirtualBox VBoxManage VBoxSVC VBoxExtPackHelperApp VBoxXPCOMIPCD VBoxTestOGL VBoxBalloonCtrl vboxwebsrv webtest -t "$pkgdir/usr/lib/virtualbox"
+    install -m0755 VirtualBox VBoxManage VBoxSVC VBoxExtPackHelperApp VBoxXPCOMIPCD VBoxTestOGL VBoxBalloonCtrl -t "$pkgdir/usr/lib/virtualbox"
 
     # components
     install -dm0755 "$pkgdir/usr/lib/virtualbox/components"
