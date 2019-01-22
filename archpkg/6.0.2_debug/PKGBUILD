@@ -131,7 +131,6 @@ build() {
     msg2 'Build virtualbox'
     ./configure \
         --disable-docs \
-        --enable-webservice \
         --enable-vde \
         --enable-vnc \
         --disable-kmods \
@@ -164,7 +163,7 @@ package_virtualbox() {
     install=virtualbox.install
 
     source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/bin"
 
     # binaries
     install -dm0755 "$pkgdir/usr/bin"
@@ -250,7 +249,7 @@ package_virtualbox-sdk() {
     install -dm0755 "$pkgdir/usr/lib/virtualbox"
 
     source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/bin"
 
     install -Dm0755 vboxshell.py "$pkgdir/usr/lib/virtualbox/vboxshell.py"
     # python sdk
@@ -279,7 +278,7 @@ package_virtualbox-host-dkms() {
 
     install -dm0755 "$pkgdir/usr/src"
     source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/bin"
     cp -r src "$pkgdir/usr/src/vboxhost-${pkgver}_OSE"
     # licence
     install -Dm0644 "$srcdir/VirtualBox-$pkgver/COPYING" \
@@ -309,7 +308,7 @@ package_virtualbox-guest-dkms() {
 
     install -dm0755 "$pkgdir/usr/src"
     source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/bin/additions"
     cp -r src "$pkgdir/usr/src/vboxguest-${pkgver}_OSE"
     # licence
     install -Dm0644 "$srcdir/VirtualBox-$pkgver/COPYING" \
@@ -342,7 +341,7 @@ package_virtualbox-guest-utils() {
     conflicts=('virtualbox-archlinux-additions' 'virtualbox-guest-additions' 'virtualbox-guest-utils-nox')
 
     source "VirtualBox-$pkgver/env.sh"
-    pushd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    pushd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/bin/additions"
     install -d "$pkgdir/usr/bin"
     install -m0755 VBoxClient VBoxControl VBoxService "$srcdir/mount.vboxsf" "$pkgdir/usr/bin"
     install -Dm0755 mount.vboxsf "$pkgdir/usr/lib/virtualbox/mount.vboxsf"
@@ -369,7 +368,7 @@ package_virtualbox-guest-utils-nox() {
     conflicts=('virtualbox-guest-utils')
 
     source "VirtualBox-$pkgver/env.sh"
-    pushd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    pushd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/bin/additions"
     install -d "$pkgdir/usr/bin"
     install -m0755 VBoxControl VBoxService "$srcdir/mount.vboxsf" "$pkgdir/usr/bin"
     install -Dm0755 mount.vboxsf "$pkgdir/usr/lib/virtualbox/mount.vboxsf"
@@ -391,7 +390,7 @@ package_virtualbox-ext-vnc() {
     install=virtualbox-ext-vnc.install
 
     source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/packages"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/debug/packages"
     install -Dm0644 VNC-*.vbox-extpack "$pkgdir/usr/share/virtualbox/extensions/VNC-${pkgver}.vbox-extpack"
     # licence
     install -Dm0644 "$srcdir/VirtualBox-$pkgver/COPYING" \
