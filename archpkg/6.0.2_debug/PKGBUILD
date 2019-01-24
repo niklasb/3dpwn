@@ -105,6 +105,7 @@ sha256sums=('SKIP'
             'SKIP'
             'a784f3cc24652a16385cc63abac6c5178932ca5f3861be7650631b7dafa753a4'
             'f3ed6741f8977f40900c8aa372fa082df1f8723d497d4fff445153c543bc8947')
+options=(debug !strip)
 
 prepare() {
     cd "VirtualBox-$pkgver"
